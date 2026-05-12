@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "527051721961",
+    "project_id": "hasiru-1",
+    "storage_bucket": "hasiru-1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:527051721961:android:cb0d49050427d7b105b478",
+        "android_client_info": {
+          "package_name": "com.example.hasiru"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "527051721961-ghjfhd5clu2aj9rfuvabafr91cad61cg.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.hasiru",
+            "certificate_hash": "a518546f592f4af9a77f83cd5f4adc000b5e1adf"
+          }
+        },
+        {
+          "client_id": "527051721961-1pobriajs126imosj5hu4nb81nj7fv57.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA8dMquNxCogIQU8fZXrlBWrvc64XlzK8Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "527051721961-1pobriajs126imosj5hu4nb81nj7fv57.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
