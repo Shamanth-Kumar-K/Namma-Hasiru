@@ -53,24 +53,69 @@ fun MapScreen(
     onViewRegionDetails: () -> Unit = {},
     homeViewModel: HomeViewModel = viewModel()
 ) {
-    val plants = homeViewModel.plants
+    // The stateful MapScreen now delegates to the stateless MapScreenContent
+    // This allows the Preview to bypass ViewModel (and Firebase) initialization
+    MapScreenContent(
+        plants = homeViewModel.plants,
+        onBack = onBack,
+        onMarkerClick = onMarkerClick,
+        onViewRegionDetails = onViewRegionDetails
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MapScreenContent(
+    plants: List<PlantEntry>,
+    onBack: () -> Unit = {},
+    onMarkerClick: (MarkerData) -> Unit = {},
+    onViewRegionDetails: () -> Unit = {}
+) {
     var selectedFilter by remember { mutableStateOf("All") }
     
     // Zoom and Pan state
     var scale by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
-    var hasCentered by remember { mutableStateOf(false) }
+    var lastMarkersCount by remember { mutableIntStateOf(0) }
 
-    // Generate markers from real Firestore plants
+    // Generate markers from real Firestore plants with dynamic bounding
+    // ... (rest of the code remains same)
     val realMarkers = remember(plants) {
+        if (plants.isEmpty()) return@remember emptyList<MarkerData>()
+
+        val validPlants = plants.filter { it.latitude != 0.0 && it.longitude != 0.0 }
+        
+        // Dynamic viewport based on actual plants, fallback to Bangalore
+        val minLat = if (validPlants.isNotEmpty()) validPlants.minOf { it.latitude } else 12.85
+        val maxLat = if (validPlants.isNotEmpty()) validPlants.maxOf { it.latitude } else 13.1
+        val minLng = if (validPlants.isNotEmpty()) validPlants.minOf { it.longitude } else 77.4
+        val maxLng = if (validPlants.isNotEmpty()) validPlants.maxOf { it.longitude } else 77.7
+        
+        // Add padding (20%) to keep markers away from the literal screen edges
+        val latSpan = (maxLat - minLat).coerceAtLeast(0.005)
+        val lngSpan = (maxLng - minLng).coerceAtLeast(0.005)
+        
+        val paddedMinLat = minLat - latSpan * 0.2
+        val paddedMaxLat = maxLat + latSpan * 0.2
+        val paddedMinLng = minLng - lngSpan * 0.2
+        val paddedMaxLng = maxLng + lngSpan * 0.2
+        
+        val finalLatSpan = paddedMaxLat - paddedMinLat
+        val finalLngSpan = paddedMaxLng - paddedMinLng
+
         plants.map { plant ->
-            // Convert Lat/Lng to fractions for Bangalore region (approx 12.8-13.1N, 77.4-77.7E)
-            val x = ((plant.longitude - 77.4) / 0.35).toFloat().coerceIn(0.05f, 0.95f)
-            val y = (1.0 - (plant.latitude - 12.85) / 0.25).toFloat().coerceIn(0.05f, 0.95f)
+            val finalX: Float
+            val finalY: Float
             
-            // If location is missing, use stable pseudo-random based on ID
-            val finalX = if (plant.longitude == 0.0) (Math.abs(plant.id) % 100) / 100f else x
-            val finalY = if (plant.latitude == 0.0) (Math.abs(plant.id / 100) % 100) / 100f else y
+            if (plant.latitude == 0.0 || plant.longitude == 0.0) {
+                // Use pseudo-random for plants without coordinates
+                finalX = (Math.abs(plant.id % 1000) / 1000f).coerceIn(0.1f, 0.9f)
+                finalY = (Math.abs((plant.id / 1000) % 1000) / 1000f).coerceIn(0.1f, 0.9f)
+            } else {
+                // Map coordinates to the 0..1 fraction space within our dynamic bounds
+                finalX = ((plant.longitude - paddedMinLng) / finalLngSpan).toFloat().coerceIn(0f, 1f)
+                finalY = (1.0 - (plant.latitude - paddedMinLat) / finalLatSpan).toFloat().coerceIn(0f, 1f)
+            }
 
             MarkerData(
                 id = plant.id,
@@ -114,9 +159,9 @@ fun MapScreen(
             val mapWidthPx = constraints.maxWidth.toFloat()
             val mapHeightPx = constraints.maxHeight.toFloat()
 
-            // Auto-center on first load when markers are ready
-            LaunchedEffect(filteredMarkers, mapWidthPx, mapHeightPx) {
-                if (filteredMarkers.isNotEmpty() && !hasCentered && mapWidthPx > 0) {
+            // Auto-center when markers are ready or count changes
+            LaunchedEffect(filteredMarkers.size, mapWidthPx, mapHeightPx) {
+                if (filteredMarkers.isNotEmpty() && filteredMarkers.size != lastMarkersCount && mapWidthPx > 0) {
                     val minX = filteredMarkers.minOf { it.xFraction }
                     val maxX = filteredMarkers.maxOf { it.xFraction }
                     val minY = filteredMarkers.minOf { it.yFraction }
@@ -129,14 +174,14 @@ fun MapScreen(
                     val spanY = maxY - minY
                     val maxSpan = maxOf(spanX, spanY).coerceAtLeast(0.01f)
                     
-                    val targetScale = (0.5f / maxSpan).coerceIn(1.5f, 5f)
+                    val targetScale = (0.6f / maxSpan).coerceIn(1.2f, 4f)
                     
                     scale = targetScale
                     offset = Offset(
                         mapWidthPx / 2f - centerX * mapWidthPx * targetScale,
                         mapHeightPx / 2f - centerY * mapHeightPx * targetScale
                     )
-                    hasCentered = true
+                    lastMarkersCount = filteredMarkers.size
                 }
             }
 
@@ -421,6 +466,13 @@ fun MapFilterChip(label: String, isSelected: Boolean, onClick: () -> Unit = {}) 
 @Composable
 fun MapScreenPreview() {
     HasiruTheme {
-        MapScreen()
+        // We call MapScreenContent directly with dummy data to avoid Firebase initialization error
+        MapScreenContent(
+            plants = listOf(
+                PlantEntry(1, "Banyan", "Ficus benghalensis", "2023-01-01", "Bangalore", PlantStatus.ALIVE, latitude = 12.9716, longitude = 77.5946),
+                PlantEntry(2, "Neem", "Azadirachta indica", "2023-01-02", "Bangalore", PlantStatus.DEAD, latitude = 12.9816, longitude = 77.6046),
+                PlantEntry(3, "Peepal", "Ficus religiosa", "2023-01-03", "Bangalore", PlantStatus.UNKNOWN, latitude = 12.9616, longitude = 77.5846)
+            )
+        )
     }
 }
