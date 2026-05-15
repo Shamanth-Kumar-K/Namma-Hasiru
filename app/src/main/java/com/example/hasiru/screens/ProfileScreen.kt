@@ -73,7 +73,7 @@ fun ProfileScreen(
         }
     }
 
-    val userName = userProfile?.name ?: user?.displayName ?: "Eco Guardian"
+    val userName = userProfile?.name?.takeIf { it.isNotBlank() } ?: user?.displayName ?: "Eco Guardian"
     // Prefer personalPlantCount if it's non-zero, otherwise use what's in profile
     val treesPlanted = if (personalPlantCount > 0) personalPlantCount else (userProfile?.treesPlanted ?: 0)
     val areasCovered = if (uniqueAreasCount > 0) uniqueAreasCount else (userProfile?.areasCovered ?: 0)
@@ -84,18 +84,27 @@ fun ProfileScreen(
         else -> "Seedling"
     }
 
+    // Force refresh the image by appending a timestamp if it's a remote URL
+    val rawPhotoUrl = userProfile?.photoUrl?.takeIf { it.isNotBlank() } ?: user?.photoUrl?.toString()
+    val finalPhotoUrl = if (rawPhotoUrl != null && rawPhotoUrl.startsWith("http")) {
+        if (rawPhotoUrl.contains("?")) "$rawPhotoUrl&t=${System.currentTimeMillis()}" 
+        else "$rawPhotoUrl?t=${System.currentTimeMillis()}"
+    } else {
+        rawPhotoUrl
+    }
+
     ProfileScreenContent(
         userName = userName,
         userLevel = userLevel,
         treesPlanted = treesPlanted,
         areasCovered = areasCovered,
-        userPhotoUrl = userProfile?.photoUrl ?: user?.photoUrl,
+        userPhotoUrl = finalPhotoUrl,
         onBack = onBack,
         onSignOut = onSignOut,
         onSettings = onSettings,
         onSpeciesGuide = onSpeciesGuide,
-        onEditName = { /* TODO: Implement name edit logic */ },
-        onEditPhoto = { /* TODO: Implement photo edit logic */ }
+        onEditName = onSettings,
+        onEditPhoto = onSettings
     )
 }
 

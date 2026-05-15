@@ -84,7 +84,7 @@ fun ProfileSettingsScreen(
         }
     }
 
-    // Fetch latest name from Firestore if available
+    // Fetch latest name and photo from Firestore if available
     LaunchedEffect(user?.uid) {
         user?.uid?.let { uid ->
             db.collection("users").document(uid).get().addOnSuccessListener { snapshot ->
@@ -92,6 +92,10 @@ fun ProfileSettingsScreen(
                     val firestoreName = snapshot.getString("name")
                     if (!firestoreName.isNullOrBlank()) {
                         name = firestoreName
+                    }
+                    val firestorePhotoUrl = snapshot.getString("photoUrl")
+                    if (!firestorePhotoUrl.isNullOrBlank()) {
+                        profileImageUri = Uri.parse(firestorePhotoUrl)
                     }
                 }
             }
@@ -216,17 +220,20 @@ fun ProfileSettingsScreen(
                     scope.launch {
                         authViewModel.isLoading.value = true
                         var imageUrl: String? = null
-                        // Check if URI is local (needs upload) or already remote
-                        if (profileImageUri != null && profileImageUri.toString().startsWith("content://")) {
+                        
+                        // Robust check: if it's not a remote URL, we need to upload it
+                        val uriString = profileImageUri?.toString() ?: ""
+                        if (profileImageUri != null && !uriString.startsWith("http")) {
                             imageUrl = StorageUtils.uploadImage(profileImageUri!!, "profile_images")
                         } else if (profileImageUri != null) {
-                            imageUrl = profileImageUri.toString()
+                            imageUrl = uriString
                         }
 
                         authViewModel.updateProfile(name, imageUrl) { success ->
                             authViewModel.isLoading.value = false
                             if (success) {
                                 android.widget.Toast.makeText(context, "Profile updated successfully!", android.widget.Toast.LENGTH_SHORT).show()
+                                // Navigate back immediately to trigger refresh on ProfileScreen
                                 onSave()
                             } else {
                                 android.widget.Toast.makeText(context, "Failed to update profile.", android.widget.Toast.LENGTH_SHORT).show()

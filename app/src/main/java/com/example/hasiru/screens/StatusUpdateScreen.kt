@@ -8,11 +8,8 @@ import android.os.Environment
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +27,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -63,7 +61,9 @@ fun StatusUpdateScreen(
     // Camera & Gallery states
     var capturedImageUri by remember { mutableStateOf<Uri?>(null) }
     var tempImageUri by remember { mutableStateOf<Uri?>(null) }
+    var notes by remember { mutableStateOf("") }
     var showImageSourceOptions by remember { mutableStateOf(false) }
+    var isSaving by remember { mutableStateOf(false) }
 
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
@@ -110,109 +110,139 @@ fun StatusUpdateScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // ── Tree name header ──
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 2.dp
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Row(
-                    modifier = Modifier.padding(20.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                // ── Tree name header ──
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 2.dp
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(56.dp)
-                            .background(Green80.copy(alpha = 0.3f), CircleShape),
-                        contentAlignment = Alignment.Center
+                    Row(
+                        modifier = Modifier.padding(20.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            Icons.Default.Park,
-                            contentDescription = null,
-                            tint = Green40,
-                            modifier = Modifier.size(32.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text(
-                            plantName,
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Text(
-                            "Tree ID: #$plantId",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextGrey
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .background(Green80.copy(alpha = 0.3f), CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Park,
+                                contentDescription = null,
+                                tint = Green40,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                plantName,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            Text(
+                                "Tree ID: #$plantId",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextGrey
+                            )
+                        }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // ── Status selection ──
+                Text(
+                    "Current Status",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.Start)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    StatusOption(
+                        label = "Alive",
+                        color = Green40,
+                        icon = Icons.Filled.CheckCircle,
+                        selected = selectedStatus == PlantStatus.ALIVE,
+                        onClick = { selectedStatus = PlantStatus.ALIVE },
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatusOption(
+                        label = "Dead",
+                        color = Red40,
+                        icon = Icons.Filled.Cancel,
+                        selected = selectedStatus == PlantStatus.DEAD,
+                        onClick = { selectedStatus = PlantStatus.DEAD },
+                        modifier = Modifier.weight(1f)
+                    )
+                    StatusOption(
+                        label = "Unknown",
+                        color = Color.Gray,
+                        icon = Icons.AutoMirrored.Filled.Help,
+                        selected = selectedStatus == PlantStatus.UNKNOWN,
+                        onClick = { selectedStatus = PlantStatus.UNKNOWN },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // ── Growth photo capture ──
+                Text(
+                    "Growth Photo",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.Start)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                PhotoCaptureBox(
+                    imageUri = capturedImageUri,
+                    onClick = { showImageSourceOptions = true }
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // ── Notes field ──
+                Text(
+                    "Update Notes",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.Start)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 120.dp),
+                    placeholder = { Text("How is the tree doing? Any visible growth or care needed?") },
+                    shape = RoundedCornerShape(16.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Green40,
+                        unfocusedBorderColor = Color.LightGray.copy(alpha = 0.5f),
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White
+                    )
+                )
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // ── Status selection ──
-            Text(
-                "Current Status",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.Start)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                StatusOption(
-                    label = "Alive",
-                    color = Green40,
-                    icon = Icons.Filled.CheckCircle,
-                    selected = selectedStatus == PlantStatus.ALIVE,
-                    onClick = { selectedStatus = PlantStatus.ALIVE },
-                    modifier = Modifier.weight(1f)
-                )
-                StatusOption(
-                    label = "Dead",
-                    color = Red40,
-                    icon = Icons.Filled.Cancel,
-                    selected = selectedStatus == PlantStatus.DEAD,
-                    onClick = { selectedStatus = PlantStatus.DEAD },
-                    modifier = Modifier.weight(1f)
-                )
-                StatusOption(
-                    label = "Unknown",
-                    color = Color.Gray,
-                    icon = Icons.AutoMirrored.Filled.Help,
-                    selected = selectedStatus == PlantStatus.UNKNOWN,
-                    onClick = { selectedStatus = PlantStatus.UNKNOWN },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // ── Growth photo capture ──
-            Text(
-                "Growth Photo",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.Start)
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            PhotoCaptureBox(
-                imageUri = capturedImageUri,
-                onClick = { showImageSourceOptions = true }
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // ── Save Update button ──
-            var isSaving by remember { mutableStateOf(false) }
+            // ── Save Update button fixed at bottom ──
             Button(
                 onClick = {
                     isSaving = true
@@ -226,7 +256,9 @@ fun StatusUpdateScreen(
                         val updateData = hashMapOf(
                             "status" to (selectedStatus?.name ?: "ALIVE"),
                             "imageUrl" to (imageUrl ?: ""),
-                            "timestamp" to com.google.firebase.Timestamp.now()
+                            "notes" to notes,
+                            "timestamp" to com.google.firebase.Timestamp.now(),
+                            "date" to java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault()).format(java.util.Date())
                         )
 
                         val docId = if (documentId.isNotEmpty()) documentId else plantId.toString()
@@ -234,9 +266,16 @@ fun StatusUpdateScreen(
                         db.collection("plants").document(docId)
                             .collection("updates").add(updateData)
                             .addOnSuccessListener {
-                                // Also update the main plant status
+                                // Also update the main plant status and latest photo
+                                val mainUpdate = mutableMapOf<String, Any>(
+                                    "status" to (selectedStatus?.name ?: "ALIVE")
+                                )
+                                if (imageUrl != null) {
+                                    mainUpdate["imageUrl"] = imageUrl
+                                }
+                                
                                 db.collection("plants").document(docId)
-                                    .update("status", selectedStatus?.name ?: "ALIVE")
+                                    .update(mainUpdate)
                                 
                                 isSaving = false
                                 android.widget.Toast.makeText(context, "Status updated successfully!", android.widget.Toast.LENGTH_SHORT).show()
@@ -250,13 +289,14 @@ fun StatusUpdateScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
                     .height(56.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Green40,
                     disabledContainerColor = Green40.copy(alpha = 0.3f)
                 ),
-                enabled = selectedStatus != null && capturedImageUri != null && !isSaving,
+                enabled = selectedStatus != null && !isSaving,
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
             ) {
                 if (isSaving) {
@@ -265,8 +305,6 @@ fun StatusUpdateScreen(
                     Text("Save Update", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = White)
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
         }
 
         if (showImageSourceOptions) {
@@ -339,16 +377,40 @@ fun StatusOption(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val animatedElevation by animateDpAsState(if (selected) 8.dp else 2.dp)
-    val animatedBackground by animateColorAsState(if (selected) color.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surface)
+    val scale by animateFloatAsState(
+        targetValue = if (selected) 1.02f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "scale"
+    )
+    val animatedElevation by animateDpAsState(
+        targetValue = if (selected) 6.dp else 2.dp,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "elevation"
+    )
+    val containerColor by animateColorAsState(
+        if (selected) color.copy(alpha = 0.12f) else White,
+        label = "background"
+    )
+    val contentColor by animateColorAsState(
+        if (selected) color else TextGrey,
+        label = "content"
+    )
+    val borderColor by animateColorAsState(
+        if (selected) color else BorderGrey.copy(alpha = 0.5f),
+        label = "border"
+    )
 
     Surface(
+        onClick = onClick,
         modifier = modifier
-            .height(90.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        color = animatedBackground,
-        border = if (selected) BorderStroke(2.dp, color) else null,
+            .height(105.dp)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            },
+        shape = RoundedCornerShape(24.dp),
+        color = containerColor,
+        border = BorderStroke(if (selected) 2.dp else 1.dp, borderColor),
         shadowElevation = animatedElevation
     ) {
         Column(
@@ -359,15 +421,16 @@ fun StatusOption(
             Icon(
                 icon,
                 contentDescription = null,
-                tint = if (selected) color else color.copy(alpha = 0.5f),
-                modifier = Modifier.size(32.dp)
+                tint = contentColor,
+                modifier = Modifier.size(if (selected) 38.dp else 32.dp)
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 label,
-                fontWeight = FontWeight.Bold,
-                color = if (selected) color else TextGrey,
-                style = MaterialTheme.typography.labelLarge
+                fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Bold,
+                color = contentColor,
+                style = MaterialTheme.typography.labelLarge,
+                fontSize = if (selected) 15.sp else 14.sp
             )
         }
     }

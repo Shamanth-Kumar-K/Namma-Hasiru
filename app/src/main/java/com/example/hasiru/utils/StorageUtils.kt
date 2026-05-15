@@ -13,14 +13,14 @@ object StorageUtils {
             val fileName = "img_${System.currentTimeMillis()}.jpg"
             val fileRef = storage.child("$folder/$fileName")
             
-            // Upload file
+            // Upload file and wait for completion
             fileRef.putFile(uri).await()
             
-            // Get download URL
+            // Get download URL and wait for result
             val downloadUrl = fileRef.downloadUrl.await()
             downloadUrl.toString()
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("HASIRU_STORAGE", "Upload failed: ${e.message}", e)
             null
         }
     }

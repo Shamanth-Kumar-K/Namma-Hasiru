@@ -298,8 +298,13 @@ fun SignUpScreen(
                         scope.launch {
                             authViewModel.isLoading.value = true
                             var imageUrl: String? = null
-                            profileImageUri?.let { uri ->
-                                imageUrl = StorageUtils.uploadImage(uri, "profile_images")
+                            
+                            // Robust upload check
+                            val uriString = profileImageUri?.toString() ?: ""
+                            if (profileImageUri != null && !uriString.startsWith("http")) {
+                                imageUrl = StorageUtils.uploadImage(profileImageUri!!, "profile_images")
+                            } else if (profileImageUri != null) {
+                                imageUrl = uriString
                             }
                             
                             authViewModel.signUp(email, password) { success ->

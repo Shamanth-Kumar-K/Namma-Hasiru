@@ -142,7 +142,7 @@ class AuthRepository {
         val userId = auth.currentUser?.uid ?: "anonymous"
         return db.collection("plants")
             .whereEqualTo("uid", userId)
-            // .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING) // Temporarily disabled for index setup
+            .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     android.util.Log.e("HASIRU_DEBUG", "Firestore Error: ${error.message}")
